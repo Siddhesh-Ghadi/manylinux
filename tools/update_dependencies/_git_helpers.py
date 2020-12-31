@@ -46,6 +46,11 @@ def get_tag_year(url: str, pattern: str, version: str) -> int:
     return datetime.fromisoformat(output_raw.decode('ascii').strip()).year
 
 
+def get_url(remote: str = "origin") -> str:
+    url_raw = subprocess.check_output(["git", "remote", "get-url", remote])
+    return url_raw.decode("ascii").strip()
+
+
 @contextmanager
 def checkout(url: str, commit: str, branch_name: str):
     with TemporaryDirectory() as path:
@@ -67,8 +72,34 @@ def checkout(url: str, commit: str, branch_name: str):
         finally:
             os.chdir(old_cwd)
 
-# git init
-# git remote add origin https://github.com/mayeut/manylinux-timeline
-# git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin +b7c447593582db9440f9729321e6e43bf9971d1a:refs/remotes/origin/main
-# git checkout --progress --force -B main refs/remotes/origin/main
-# git show -s --format=%aI
+
+@contextmanager
+def branch(name: str):
+    old_branch_raw = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"])
+    old_branch = old_branch_raw.decode("ascii").strip()
+    subprocess.check_call(["git", "checkout", "-b", f"{name}"])
+    #subprocess.check_call(["git", "branch", f"--set-upstream-to=origin"])
+    # , "--track", f"origin/{name}"
+    try:
+        yield
+    finally:
+        subprocess.check_call(["git", "reset", "--hard"])
+        subprocess.check_call(["git", "checkout", "--force", old_branch])
+
+
+def push() -> None:
+    branch_name_raw = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"])
+    branch_name = branch_name_raw.decode("ascii").strip()
+    subprocess.check_call([
+        "git", "push", "--force", "--set-upstream", "origin", branch_name])
+
+
+def add_and_commit(message: str) -> None:
+    subprocess.check_call(["git", "add", "--update"])
+    subprocess.check_call(["git", "commit", "-m", message])
+
+
+def create_pr(message: str, branch_name: str) -> None:
+    url = subprocess.check_output(["git", "remote", "get-url", "origin"]).decode(
+        "ascii").strip()
+    #with checkout(url, "refs/head/master", "master"):

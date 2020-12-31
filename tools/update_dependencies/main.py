@@ -5,26 +5,40 @@ import _others
 import _python
 
 
-ROOT_PATH = Path(__file__).parent.parent.parent
-ENV_PATH = ROOT_PATH / "docker" / "build_scripts" / "build_env.sh"
+#ROOT_PATH = Path(__file__).parent.parent.parent
 
 
 if __name__ == "__main__":
-    if not ENV_PATH.exists():
-        raise FileNotFoundError(ENV_PATH)
+    base_branch = "master"
+    with _git_helpers.checkout(
+            _git_helpers.get_url(), f"refs/heads/{base_branch}", base_branch):
 
-    if not ENV_PATH.is_file():
-        raise IsADirectoryError(ENV_PATH)
+        ENV_PATH = Path('.') / "docker" / "build_scripts" / "build_env.sh"
+        if not ENV_PATH.exists():
+            raise FileNotFoundError(ENV_PATH)
 
-    python_map = _python.get_update_map(ENV_PATH)
-    for old_version, new_version in python_map.items():
-        _python.update(ENV_PATH, old_version, new_version)
+        if not ENV_PATH.is_file():
+            raise IsADirectoryError(ENV_PATH)
 
-    for tool in {'autoconf', 'automake', 'git', 'libtool', 'libxcrypt', 'openssl',
-                 'patchelf', 'sqlite_autoconf'}:
-        update_result = _others.get_update_map(tool, ENV_PATH)
-        if update_result:
-            _others.update(tool, ENV_PATH, update_result)
+        python_map = _python.get_update_map(ENV_PATH)
+        for old_version, new_version in python_map.items():
+            with _git_helpers.branch(f"update/{base_branch}/python-{old_version}"):
+                _python.update(ENV_PATH, old_version, new_version)
+                _git_helpers.add_and_commit(
+                    f"Update python from {old_version} to {new_version}")
+                _git_helpers.push()
+
+        for tool in {'autoconf', 'automake', 'git', 'libtool', 'libxcrypt', 'openssl',
+                     'patchelf', 'sqlite_autoconf'}:
+            update_result = _others.get_update_map(tool, ENV_PATH)
+            if update_result:
+                with _git_helpers.branch(
+                        f"update/{base_branch}/{tool}-{update_result.version_old}"):
+                    _others.update(tool, ENV_PATH, update_result)
+                    _git_helpers.add_and_commit(
+                        f"Update {tool} from {update_result.version_old} to "
+                        f"{update_result.version}")
+                    _git_helpers.push()
 
     # git ls-remote --refs --tags https://github.com/Kitware/CMake.git 'v*'
     # git ls-remote --refs --tags https://github.com/swig/swig.git 'v*'

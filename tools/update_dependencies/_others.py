@@ -10,6 +10,7 @@ import requests
 
 class UpdateResult(NamedTuple):
     version: str
+    version_old: str
     prefix: Optional[str]
     hash: str
     url: str
@@ -189,7 +190,8 @@ def _patch_url(tool: str, url: str, version: str) -> str:
 
 
 def _get_result(
-        tool: str, prefix: Optional[str], url: str, candidates: Iterable[str]
+        tool: str, prefix: Optional[str], url: str, candidates: Iterable[str],
+        version_old: str
 ) -> UpdateResult:
     prefix_string = ""
     if prefix:
@@ -207,12 +209,12 @@ def _get_result(
             # TODO try to get signatures/hashes differently
             # e.g. sha256sums.asc for git which is signed
             hash_ = hashlib.sha256(response.content).hexdigest()
-            return UpdateResult(candidate, prefix, hash_, url)
+            return UpdateResult(candidate, version_old, prefix, hash_, url)
 
 
 def get_update_map(tool: str, env_file: Path) -> Optional[UpdateResult]:
     version, prefix, url = _parse_env_file(tool, env_file)
-    version = _patch_version(tool, version)
-    candidates = _filter_git_tags(tool, version)
+    version_patched = _patch_version(tool, version)
+    candidates = _filter_git_tags(tool, version_patched)
     candidates = _unpatch_version(tool, candidates)
-    return _get_result(tool, prefix, url, candidates)
+    return _get_result(tool, prefix, url, candidates, version)
