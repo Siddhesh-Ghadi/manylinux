@@ -27,6 +27,8 @@ _GIT_TAG_PARAMETERS_MAP = {
     "LIBTOOL": _GitTagParameters("git://git.sv.gnu.org/libtool", "v{major}.*"),
     "LIBXCRYPT": _GitTagParameters("https://github.com/besser82/libxcrypt.git",
                                    "v{major}.*"),
+    "OPENSSL": _GitTagParameters("https://github.com/openssl/openssl.git",
+                                 "OpenSSL_1_1_1[a-z]"),
     "PATCHELF": _GitTagParameters("https://github.com/NixOS/patchelf.git", "{major}.*"),
     "SQLITE_AUTOCONF": _GitTagParameters("https://github.com/mackyle/sqlite.git",
                                          "version-{major}.*")
@@ -36,9 +38,9 @@ _GIT_TAG_PARAMETERS_MAP = {
 URL_RE_TEMPLATE = \
     r"^[ \t]*{tool}_DOWNLOAD_URL=(?P<quote>[\"']?)(?P<url>[\w:/.%]+)(?P=quote)"
 VERSION_RE_TEMPLATE = \
-    r"^[ \t]*{tool}_VERSION=(?P<quote>[\"']?)(?P<version>[0-9.]+)(?P=quote)"
+    r"^[ \t]*{tool}_VERSION=(?P<quote>[\"']?)(?P<version>[\w.]+)(?P=quote)"
 ROOT_RE_TEMPLATE = (
-    r"^[ \t]*{tool}_ROOT=(?P<quote>[\"']?)(?P<prefix>[\w-]+)-(?P<version>[0-9.]+)"
+    r"^[ \t]*{tool}_ROOT=(?P<quote>[\"']?)(?P<prefix>[\w-]+)-(?P<version>[\w.]+)"
     r"(?P=quote)"
 )
 HASH_RE_TEMPLATE = \
@@ -123,8 +125,10 @@ def _filter_git_tags(tool: str, version: str) -> Iterable[str]:
     )
     filtered = []
     for candidate in candidates:
-        candidate_semver = packaging.version.parse(
-            GIT_VERSION_RE.match(candidate)["version"])
+        candidate_str = GIT_VERSION_RE.match(candidate)["version"]
+        if tool.upper() == "OPENSSL":
+            candidate_str = _patch_version(tool, candidate_str)
+        candidate_semver = packaging.version.parse(candidate_str)
         if candidate_semver > version_semver and not candidate_semver.is_prerelease:
             filtered.append(candidate_semver)
     filtered.sort(reverse=True)
@@ -140,6 +144,9 @@ def _patch_version(tool: str, version: str) -> str:
         version_int -= minor * 10000
         patch = version_int // 100
         return f'{major}.{minor}.{patch}'
+    elif tool.upper() == 'OPENSSL':
+        patch = ord(version[-1])
+        return f'{version.replace("_", ".")[:-1]}.{patch}'
     return version
 
 
@@ -154,6 +161,14 @@ def _unpatch_version(tool: str, candidates: Iterable[str]) -> Iterable[str]:
                 version_int += version.minor * 10000
                 version_int += version.micro * 100
                 unpatched_candidates.append(f"{version_int}")
+        return unpatched_candidates
+    elif tool.upper() == 'OPENSSL':
+        unpatched_candidates = []
+        for candidate in candidates:
+            version = packaging.version.parse(candidate)
+            unpatched_candidates.append(
+                f"{'.'.join(str(p) for p in version.release[:3])}"
+                f"{chr(version.release[3])}")
         return unpatched_candidates
     return candidates
 
