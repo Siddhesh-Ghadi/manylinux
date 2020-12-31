@@ -99,7 +99,11 @@ def add_and_commit(message: str) -> None:
     subprocess.check_call(["git", "commit", "-m", message])
 
 
-def create_pr(message: str, branch_name: str) -> None:
-    url = subprocess.check_output(["git", "remote", "get-url", "origin"]).decode(
-        "ascii").strip()
-    #with checkout(url, "refs/head/master", "master"):
+def create_pr(base_branch: str, message: str) -> None:
+
+    title = "manylinux2010" if base_branch == "master" else base_branch
+    title = f"[{title}] {message}"
+    body = f"{message}\nCommit created using update scripts"
+    subprocess.check_call([
+        "gh", "pr", "create", "--base", base_branch, "--title", title, "--body", body
+    ])
