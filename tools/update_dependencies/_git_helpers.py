@@ -105,5 +105,5 @@ def create_pr(base_branch: str, message: str) -> None:
     title = f"[{title}] {message}"
     body = f"{message}\nCommit created using update scripts"
     subprocess.check_call([
-        "gh", "pr", "create", "--base", base_branch, "--title", title, "--body", body
+        "gh", "pr", "create", "--repo", "pypa/manylinux", "--base", base_branch, "--title", title, "--body", body
     ])
