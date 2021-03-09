@@ -36,7 +36,7 @@ jobs:
       env: POLICY="manylinux_2_24" PLATFORM="aarch64"
     - arch: s390x
       env: POLICY="manylinux_2_24" PLATFORM="s390x"
-    - arch: ppc64le
+    - os: linux-ppc64le
       env: POLICY="manylinux_2_24" PLATFORM="ppc64le"
 
 before_install:
